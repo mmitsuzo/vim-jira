@@ -1,0 +1,370 @@
+*jira.txt*	Work with Jira from Vim
+
+Version:    0.1.0
+Repository: https://github.com/mmitsuzo/vim-jira
+License:    see the LICENSE file of the repository
+
+==============================================================================
+CONTENTS						*jira-contents*
+
+  1. Introduction ............................ |jira-introduction|
+  2. Requirements ............................ |jira-requirements|
+  3. Installation ............................ |jira-installation|
+     3.1 vim-plug ............................ |jira-install-vim-plug|
+     3.2 Vim packages ........................ |jira-install-packages|
+     3.3 Git-Bash on Windows ................. |jira-git-bash|
+  4. Login ................................... |jira-login|
+  5. Issues .................................. |jira-issues|
+  6. Commands ................................ |jira-commands|
+  7. Options ................................. |jira-options|
+  8. Troubleshooting ......................... |jira-troubleshooting|
+
+==============================================================================
+1. Introduction						*jira-introduction*
+
+jira.vim lets you work with Jira Cloud issues without leaving Vim.
+Only Jira Cloud (https://<site>.atlassian.net) is supported; Jira Server and
+Data Center are not.
+
+It is written in pure |Vim9-script| and keeps external dependencies to a
+minimum: the only program it needs is curl (see |jira-requirements|).
+
+==============================================================================
+2. Requirements						*jira-requirements*
+
+- Vim 9.0 or later (the plugin is written in |Vim9-script|).
+  On older Vim versions and on Neovim the plugin silently does nothing.
+- curl, used to talk to the Jira REST API. It is the only external
+  dependency, and it is already installed with:
+    - Git for Windows (Git-Bash)
+    - Windows 10 1803 and later (C:\Windows\System32\curl.exe)
+    - macOS and most Linux distributions
+
+No Python, Lua, Node.js or other interpreter is required.
+
+Run |:JiraCheck| to verify your environment.
+
+==============================================================================
+3. Installation						*jira-installation*
+
+------------------------------------------------------------------------------
+3.1 vim-plug						*jira-install-vim-plug*
+
+With https://github.com/junegunn/vim-plug add this to your vimrc: >
+
+	call plug#begin()
+	Plug 'mmitsuzo/vim-jira'
+	call plug#end()
+<
+then restart Vim and run |:PlugInstall|. vim-plug generates the help tags
+for you.
+
+The plugin can also be loaded on demand: >
+
+	Plug 'mmitsuzo/vim-jira', { 'on': ['JiraIssues', 'JiraIssue',
+	      \ 'JiraEdit', 'JiraComment', 'JiraTransition',
+	      \ 'JiraLogin', 'JiraLogout', 'JiraCheck', 'JiraVersion'] }
+<
+------------------------------------------------------------------------------
+3.2 Vim packages					*jira-install-packages*
+
+Using Vim's built-in |packages|: >
+
+	git clone https://github.com/mmitsuzo/vim-jira.git \
+	    ~/.vim/pack/plugins/start/vim-jira
+	vim -u NONE -c "helptags ~/.vim/pack/plugins/start/vim-jira/doc" -c q
+<
+For native Windows Vim/gVim use "~/vimfiles" instead of "~/.vim".
+
+------------------------------------------------------------------------------
+3.3 Git-Bash on Windows					*jira-git-bash*
+
+The Vim bundled with Git for Windows (Git-Bash) is fully supported. Note
+that it is a Unix-like (MSYS2) build of Vim:
+
+- Its user directory is "~/.vim" and its vimrc is "~/.vimrc", where "~" is
+  the Git-Bash home directory (usually C:\Users\<name>). It does NOT read
+  "~/vimfiles" or "~/_vimrc", which are used by native Windows Vim.
+- To install vim-plug in Git-Bash: >
+
+	curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+	  https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+<
+- curl from Git for Windows is found automatically. |:JiraCheck| reports
+  "Platform: msys" when running in Git-Bash.
+
+The repository stores files with LF line endings (see .gitattributes), so
+the plugin works regardless of your "core.autocrlf" setting.
+
+==============================================================================
+4. Login						*jira-login*
+
+Jira Cloud authenticates with your Atlassian account email and an API token.
+Create a token at:
+
+	https://id.atlassian.com/manage-profile/security/api-tokens
+
+The plugin needs three settings. Each is taken from a Vim variable if set,
+otherwise from an environment variable:
+
+	Setting		Vim variable	Environment variable ~
+	site URL	|g:jira_url|	$JIRA_URL
+	email		|g:jira_user|	$JIRA_USER
+	API token	(none)		$JIRA_API_TOKEN (see |g:jira_token_env|)
+
+The API token can be provided in two ways:
+
+1. Environment variable (recommended) ~
+	Set $JIRA_API_TOKEN before starting Vim, e.g. in ~/.bashrc for
+	Git-Bash: >
+
+	export JIRA_URL=https://example.atlassian.net
+	export JIRA_USER=you@example.com
+	export JIRA_API_TOKEN=xxxxxxxx
+<
+	When the environment variable is set it ALWAYS takes precedence over
+	a token typed at |:JiraLogin|.
+
+2. Typed for the current session ~
+	If $JIRA_API_TOKEN is not set, |:JiraLogin| asks for the token with
+	hidden input. It is kept in memory only, never written to disk, and
+	forgotten when Vim exits or on |:JiraLogout|. Missing URL and email
+	are asked for as well.
+
+Security notes:
+- The token is passed to curl on stdin as a config file (curl -K -), not
+  on the command line, so it does not appear in the process list.
+- Do not put the token itself in your vimrc. Keep it in the environment
+  (e.g. a file only you can read that ~/.bashrc sources) or type it.
+
+==============================================================================
+5. Issues						*jira-issues*
+
+|:JiraIssues| opens the issue list in the current window: >
+
+	JQL: assignee = currentUser() AND resolution = Unresolved ORDER BY ...
+
+	ABC-12  In Progress  Alice  Fix the login page
+	ABC-7   To Do        -      Write release notes
+<
+Columns are key, status, assignee ("-" if unassigned) and summary.
+Press <CR> on an issue to open its details in a split window below. The
+same window is reused when you open another issue, so you can browse the
+list with the details next to it.
+
+The detail buffer shows the fields, the description and the comments as
+Markdown (filetype "markdown"): >
+
+	# ABC-12: Fix the login page
+
+	- Type:     Bug
+	- Status:   In Progress
+	...
+	- URL:      https://example.atlassian.net/browse/ABC-12
+
+	## Description
+	...
+	## Comments (2)
+<
+Both buffers are read-only scratch buffers named "jira://issues" and
+"jira://issue/{key}". They are not listed in |:ls|.
+
+Mappings in both buffers:				*jira-mappings*
+	<CR>	(list only) open the issue under the cursor
+	e	edit summary and description	|:JiraEdit|
+	c	add a comment			|:JiraComment|
+	s	change the status		|:JiraTransition|
+	r	reload from Jira
+	q	close the window
+In the list, e, c and s act on the issue under the cursor.
+
+Editing an issue					*jira-edit*
+
+|:JiraEdit| (or "e") opens an edit buffer laid out like a git commit
+message: >
+
+	Fix the login page		<- line 1: summary
+
+	The description, as text.	<- from line 3: description
+<
+Write it with |:w| to save to Jira and close it; |:q!| cancels. Only fields
+you changed are sent. After saving, the list and the detail buffer are
+reloaded.
+
+How changes are detected: when the editor opens, the summary and the
+description text shown in it are remembered. On |:w| the buffer is split
+into summary (line 1) and description (after the first blank line; blank
+lines at its start and end are ignored) and compared line by line with
+what was shown. A field is sent only if it differs, so after editing only
+the summary the description is left exactly as it is in Jira.
+
+						*jira-edit-conflict*
+Before saving, the fields you changed are fetched again and compared with
+the values Jira returned when the editor was opened (the description in
+Jira's own format, so a formatting-only change is noticed too). If someone
+else changed one of them in the meantime, nothing is saved, your text is
+kept and an error says which field changed. Then either:
+- |:w!| to overwrite Jira with your text anyway, or
+- copy what you need, |:q!|, and press "e" to start from Jira's version.
+Changes to fields you are not saving do not block the save. The check
+costs one small extra request per save, and only when there is something
+to save.
+
+Descriptions and comments are stored by Jira in a rich format (Atlassian
+Document Format). They are shown as Markdown-like text, and the following
+is converted back when you save: paragraphs (single line breaks are kept),
+"#" headings, "-" / "1." lists (nested by indentation), ``` code blocks,
+"> " quotes and "---" rules. Anything else, e.g. **bold**, links, tables,
+mentions or attachments, is saved as plain text. So:
+
+- Editing only the summary never touches the description.
+- If you change the description, its formatting is simplified to the
+  list above. Use the Jira web page for richly formatted descriptions.
+
+|:JiraComment| (or "c") opens an empty buffer; |:w| posts it as a new comment
+using the same text format.
+
+All matching issues are loaded, page by page, up to |g:jira_max_results|
+(default 1000); a note at the end of the list says when there are more.
+
+==============================================================================
+6. Commands						*jira-commands*
+
+:JiraVersion						*:JiraVersion*
+	Show the plugin version.
+
+:JiraCheck						*:JiraCheck*
+	Check the environment and report the Vim version, the detected
+	platform ("msys" for Git-Bash, "cygwin", "windows" or "unix"), the
+	curl executable, the Jira URL and email, where the API token comes
+	from and the login state. Problems are shown as errors. No network
+	request is made.
+
+:JiraLogin						*:JiraLogin*
+	Log in to Jira Cloud. Asks for any missing URL, email or API token
+	(see |jira-login|), then verifies them by requesting
+	"/rest/api/3/myself" and shows "logged in as <name> <email>".
+	If a typed token is rejected (HTTP 401) it is discarded so the next
+	:JiraLogin asks again.
+
+:JiraLogout						*:JiraLogout*
+	Forget the token and email typed at |:JiraLogin| and the logged-in
+	user. A token in $JIRA_API_TOKEN is not affected; unset it in the
+	shell to stop using it.
+
+:JiraIssues [{jql}]					*:JiraIssues*
+	Search issues with {jql} and show the list (see |jira-issues|).
+	Without {jql}, |g:jira_default_jql| is used. Examples: >
+
+	:JiraIssues
+	:JiraIssues project = ABC AND status = "In Progress"
+	:JiraIssues text ~ "login" ORDER BY created DESC
+<
+	Asks for missing login settings first (see |jira-login|).
+
+:JiraIssue {key}					*:JiraIssue*
+	Show the details of issue {key} (case does not matter) in the
+	current window. Example: >
+
+	:JiraIssue ABC-12
+<
+In the following commands [key] may be omitted in a jira.vim buffer: the
+detail and edit buffers use their issue, the list uses the issue under the
+cursor.
+
+:JiraEdit [key]						*:JiraEdit*
+	Edit the summary and description of an issue (see |jira-edit|).
+
+:JiraComment [key]					*:JiraComment*
+	Write a new comment on an issue (see |jira-edit|).
+
+:JiraTransition [key] [{status}]			*:JiraTransition*
+	Change the status of an issue. Only the transitions allowed by the
+	issue's workflow are offered. Without {status} a numbered menu is
+	shown; with {status} the transition whose name or target status
+	matches (ignoring case) is used. Examples: >
+
+	:JiraTransition
+	:JiraTransition In Progress
+	:JiraTransition ABC-12 Done
+<
+==============================================================================
+7. Options						*jira-options*
+
+g:jira_default_jql					*g:jira_default_jql*
+	JQL used by |:JiraIssues| without an argument.
+	Default: >
+	'assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC'
+<
+g:jira_max_results					*g:jira_max_results*
+	Maximum number of issues shown by |:JiraIssues|. Jira Cloud returns
+	at most 100 issues per request, so the plugin requests further pages
+	(following "nextPageToken") until all issues are loaded or this limit
+	is reached. 0 means no limit (large searches may take a while).
+	Default: 1000.
+
+
+g:jira_url						*g:jira_url*
+	Jira Cloud site URL. A trailing "/" is removed.
+	Default: $JIRA_URL. Example: >
+
+	let g:jira_url = 'https://example.atlassian.net'
+<
+g:jira_user						*g:jira_user*
+	Atlassian account email.
+	Default: $JIRA_USER. Example: >
+
+	let g:jira_user = 'you@example.com'
+<
+g:jira_token_env					*g:jira_token_env*
+	Name of the environment variable that holds the API token.
+	Default: "JIRA_API_TOKEN".
+
+g:jira_timeout						*g:jira_timeout*
+	Maximum time in seconds for one request.
+	Default: 30.
+
+g:jira_curl						*g:jira_curl*
+	Name or path of the curl executable.
+	Default: "curl" (looked up in $PATH). Example: >
+
+	let g:jira_curl = '/mingw64/bin/curl'
+<
+==============================================================================
+8. Troubleshooting					*jira-troubleshooting*
+
+"... changed in Jira since you opened this editor" ~
+	Someone else changed the same field; see |jira-edit-conflict|.
+
+"HTTP 403" or "HTTP 400" when saving ~
+	You may lack permission to edit the issue, or the field cannot be
+	changed on its screen. The rest of the message is Jira's reason.
+
+"HTTP 400: Error in the JQL Query ..." ~
+	The {jql} given to |:JiraIssues| is invalid; the rest of the message
+	is Jira's explanation. Values with spaces need quotes, e.g.
+	status = "In Progress".
+
+
+Commands are not defined ~
+	Check |:version| for Vim 9.0 or later. The plugin is skipped on
+	older Vim and on Neovim.
+
+"curl not found" in |:JiraCheck| ~
+	Install curl or set |g:jira_curl| to its full path.
+
+"login failed (HTTP 401)" ~
+	The email or API token is wrong, or the token was revoked. Note that
+	the API token is not your Atlassian password. Check which token is
+	used with |:JiraCheck|: a stale $JIRA_API_TOKEN wins over a typed one.
+
+"curl failed" ~
+	curl could not reach the site (wrong URL, proxy, no network). curl
+	honours $HTTPS_PROXY / $https_proxy.
+
+":help jira" does not work ~
+	Help tags were not generated. vim-plug does this on |:PlugInstall|;
+	otherwise run |:helptags| on the plugin's "doc" directory, or
+	":helptags ALL".
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

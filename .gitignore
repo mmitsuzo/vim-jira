@@ -1,0 +1,8 @@
+doc/tags
+*.swp
+*.swo
+*~
+.vim-test/
+# Local credentials must never be committed
+.env
+*.local.sh
