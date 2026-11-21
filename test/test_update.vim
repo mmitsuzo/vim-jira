@@ -237,7 +237,7 @@ def g:Test_add_comment()
 
   h.Respond({isLast: true, issues: [{key: 'ABC-1', fields: {summary: 'x'}}]})
   JiraIssues
-  :3
+  :4
   normal c
   assert_equal('jira://comment/ABC-1', bufname())
   assert_equal([''], getline(1, '$'))

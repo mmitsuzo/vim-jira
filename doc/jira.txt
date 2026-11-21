@@ -26,6 +26,9 @@ jira.vim lets you work with Jira Cloud issues without leaving Vim.
 Only Jira Cloud (https://<site>.atlassian.net) is supported; Jira Server and
 Data Center are not.
 
+The Jira web page now calls issues "work items". This plugin says "issue",
+as the Jira REST API and JQL still do.
+
 It is written in pure |Vim9-script| and keeps external dependencies to a
 minimum: the only program it needs is curl (see |jira-requirements|).
 
@@ -144,8 +147,9 @@ Security notes:
 
 	JQL: assignee = currentUser() AND resolution = Unresolved ORDER BY ...
 
-	ABC-12  In Progress  Alice  Fix the login page
-	ABC-7   To Do        -      Write release notes
+	KEY     STATUS       ASSIGNEE  SUMMARY
+	ABC-12  In Progress  Alice     Fix the login page
+	ABC-7   To Do        -         Write release notes
 <
 Columns are key, status, assignee ("-" if unassigned) and summary.
 Press <CR> on an issue to open its details in a split window below. The
@@ -171,12 +175,28 @@ Both buffers are read-only scratch buffers named "jira://issues" and
 
 Mappings in both buffers:				*jira-mappings*
 	<CR>	(list only) open the issue under the cursor
+	o	(list only) sort by the column under the cursor	|jira-sort|
 	e	edit summary and description	|:JiraEdit|
 	c	add a comment			|:JiraComment|
 	s	change the status		|:JiraTransition|
 	r	reload from Jira
 	q	close the window
 In the list, e, c and s act on the issue under the cursor.
+
+Sorting the list						*jira-sort*
+
+Press "o" in the list to sort it by the column under the cursor (on any
+line; the column header shows where each column starts). Press "o" again
+in the same column to reverse the order. Sorting is done by Jira: the
+ORDER BY of the JQL is replaced with "ORDER BY {column} ASC" (or DESC) and
+the search is run again, so the new JQL is shown on the first line and the
+order is correct even when not all issues are loaded. As in the Jira web
+page, keys are sorted by number and statuses in Jira's status order.
+
+To sort by other fields, give the ORDER BY yourself: >
+
+	:JiraIssues project = ABC ORDER BY priority DESC, updated DESC
+<
 
 Editing an issue					*jira-edit*
 

@@ -112,9 +112,35 @@ def g:Test_list_lines()
   assert_equal([
     'JQL: project = ABC',
     '',
-    'ABC-1   To Do   Alice  First issue',
-    'ABC-12  進行中  -      日本語の課題',
+    'KEY     STATUS  ASSIGNEE  SUMMARY',
+    'ABC-1   To Do   Alice     First issue',
+    'ABC-12  進行中  -         日本語の課題',
   ], lines)
+enddef
+
+def g:Test_column_at()
+  const header = 'KEY     STATUS  ASSIGNEE  SUMMARY'
+  assert_equal('key', issue.ColumnAt(header, 1))
+  assert_equal('key', issue.ColumnAt(header, 8))
+  assert_equal('status', issue.ColumnAt(header, 9))
+  assert_equal('assignee', issue.ColumnAt(header, 17))
+  assert_equal('summary', issue.ColumnAt(header, 99))
+  assert_equal('', issue.ColumnAt('(no issues)', 1))
+enddef
+
+def g:Test_sort_jql()
+  assert_equal('project = A ORDER BY status ASC',
+    issue.SortJql('project = A', 'status'))
+  assert_equal('project = A ORDER BY key ASC',
+    issue.SortJql('project = A order by updated DESC, key', 'key'))
+  assert_equal('project = A ORDER BY key DESC',
+    issue.SortJql('project = A ORDER BY key ASC', 'key'))
+  assert_equal('project = A ORDER BY key ASC',
+    issue.SortJql('project = A ORDER BY key DESC', 'key'))
+  assert_equal('ORDER BY summary ASC', issue.SortJql('ORDER BY created', 'summary'))
+  # Only the last ORDER BY is replaced
+  assert_equal('text ~ "order by" ORDER BY key ASC',
+    issue.SortJql('text ~ "order by" ORDER BY created', 'key'))
 enddef
 
 def g:Test_list_lines_empty_and_more()
@@ -232,17 +258,37 @@ def g:Test_issues_and_detail_buffers()
   assert_equal('jiraissues', &filetype)
   assert_false(&modifiable)
   assert_equal('JQL: ' .. issue.DefaultJql(), getline(1))
-  assert_equal('ABC-1   To Do   Alice  First issue', getline(3))
+  assert_equal('KEY     STATUS  ASSIGNEE  SUMMARY', getline(3))
+  assert_equal('ABC-1   To Do   Alice     First issue', getline(4))
   var cfg = h.LastConfig(dir)
   assert_true(index(cfg, 'request = "POST"') >= 0)
   assert_true(index(cfg, 'url = "https://x.atlassian.net/rest/api/3/search/jql"') >= 0)
   assert_match('data-binary = .*currentUser()', join(cfg, "\n"))
 
-  # <CR> on the header does nothing; on an issue opens the detail in a split
-  :1
-  execute "normal \<CR>"
-  assert_equal(1, winnr('$'))
-  :3
+  # o sorts by the column under the cursor; again reverses the order
+  const jql = getline(1)
+  cursor(4, 9)
+  normal o
+  assert_equal('JQL: assignee = currentUser() AND resolution = Unresolved'
+    .. ' ORDER BY status ASC', getline(1))
+  assert_match('data-binary = .*ORDER BY status ASC', join(h.LastConfig(dir), "\n"))
+  assert_equal([4, 9], [line('.'), col('.')])
+  normal o
+  assert_match('ORDER BY status DESC$', getline(1))
+  # r keeps the sort order
+  normal r
+  assert_match('ORDER BY status DESC$', getline(1))
+  JiraIssues
+  assert_equal(jql, getline(1))
+
+  # <CR> on the JQL or the column header does nothing; on an issue opens
+  # the detail in a split
+  for l in [1, 3]
+    execute ':' .. l
+    execute "normal \<CR>"
+    assert_equal(1, winnr('$'))
+  endfor
+  :4
   h.Respond(ISSUE)
   execute "normal \<CR>"
   assert_equal(2, winnr('$'))
@@ -256,7 +302,7 @@ def g:Test_issues_and_detail_buffers()
   # Opening another issue from the list reuses the detail window
   wincmd p
   assert_equal('jira://issues', bufname())
-  :4
+  :5
   h.Respond({key: 'ABC-12', fields: {summary: '日本語の課題'}})
   execute "normal \<CR>"
   assert_equal(2, winnr('$'))

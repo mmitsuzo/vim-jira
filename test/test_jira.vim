@@ -180,7 +180,8 @@ def g:Test_help_tags()
       'g:jira_timeout', ':JiraLogin', ':JiraLogout', 'jira-login',
       ':JiraIssues', ':JiraIssue', 'jira-issues', 'jira-mappings',
       'g:jira_default_jql', 'g:jira_max_results', 'jira-edit',
-      ':JiraEdit', ':JiraComment', ':JiraTransition', 'jira-edit-conflict']
+      ':JiraEdit', ':JiraComment', ':JiraTransition', 'jira-edit-conflict',
+      'jira-sort']
     assert_true(index(tags, tag) >= 0, tag)
   endfor
   delete(tmp, 'rf')

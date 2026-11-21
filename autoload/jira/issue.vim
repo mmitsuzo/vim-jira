@@ -6,6 +6,9 @@ import autoload 'jira/adf.vim'
 
 const LIST_BUFFER = 'jira://issues'
 const LIST_FIELDS = ['summary', 'status', 'assignee']
+# Column headers of the list; lowercased they are the JQL fields to sort by.
+const LIST_COLUMNS = ['KEY', 'STATUS', 'ASSIGNEE', 'SUMMARY']
+const MORE_NOTE = '-- more issues exist: narrow the JQL or raise g:jira_max_results --'
 const DETAIL_FIELDS = ['summary', 'status', 'issuetype', 'priority', 'assignee',
   'reporter', 'created', 'updated', 'labels', 'description', 'comment']
 const KEY_PATTERN = '^\a[A-Za-z0-9_]*-\d\+$'
@@ -109,33 +112,63 @@ export def ListLines(jql: string, result: dict<any>): list<string>
   const issues = get(result, 'issues', [])
   const rows = issues->mapnew((_, issue) => {
     const f = get(issue, 'fields', {})
+    const assignee = Truncate(Name(get(f, 'assignee', {})), 20)
     return [
       Str(get(issue, 'key', '')),
       Truncate(Name(get(f, 'status', {})), 20),
-      Truncate(Name(get(f, 'assignee', {})), 20),
+      empty(assignee) ? '-' : assignee,
       Str(get(f, 'summary', '')),
     ]
   })
+  if empty(rows)
+    return ['JQL: ' .. jql, '', '(no issues)']
+      + (get(result, 'isLast', true) ? [] : ['', MORE_NOTE])
+  endif
+
+  # The column header is line 3 (see ColumnAt()).
+  const table = [LIST_COLUMNS] + rows
   var widths = [0, 0, 0]
-  for row in rows
+  for row in table
     for i in range(3)
       widths[i] = max([widths[i], strdisplaywidth(row[i])])
     endfor
   endfor
-
   var lines = ['JQL: ' .. jql, '']
-  for row in rows
-    const assignee = empty(row[2]) ? '-' : row[2]
+  for row in table
     add(lines, trim(Pad(row[0], widths[0]) .. '  ' .. Pad(row[1], widths[1])
-      .. '  ' .. Pad(assignee, max([widths[2], 1])) .. '  ' .. row[3], ' ', 2))
+      .. '  ' .. Pad(row[2], widths[2]) .. '  ' .. row[3], ' ', 2))
   endfor
-  if empty(rows)
-    add(lines, '(no issues)')
-  endif
   if !get(result, 'isLast', true)
-    extend(lines, ['', '-- more issues exist: narrow the JQL or raise g:jira_max_results --'])
+    extend(lines, ['', MORE_NOTE])
   endif
   return lines
+enddef
+
+# JQL field of the list column at display column vcol of the header line
+# (KEY, STATUS, ...), or '' if there is none.
+export def ColumnAt(header: string, vcol: number): string
+  var name = ''
+  var start = 0
+  while true
+    const [word, s, e] = matchstrpos(header, '\S\+', start)
+    if s < 0 || s >= vcol
+      break
+    endif
+    name = word
+    start = e
+  endwhile
+  return index(LIST_COLUMNS, name) >= 0 ? tolower(name) : ''
+enddef
+
+# jql with its ORDER BY replaced by "ORDER BY field ASC", or DESC if it is
+# already ordered by field ascending.
+export def SortJql(jql: string, field: string): string
+  # The last ORDER BY and everything after it.
+  const pat = '\c\s*\<order\s\+by\>\%(.*\<order\s\+by\>\)\@!\(.*\)$'
+  const order = trim(get(matchlist(jql, pat), 1, ''))
+  const dir = order =~? '^' .. field .. '\s\+asc\>' ? 'DESC' : 'ASC'
+  const base = trim(substitute(jql, pat, '', ''))
+  return (empty(base) ? '' : base .. ' ') .. 'ORDER BY ' .. field .. ' ' .. dir
 enddef
 
 export def DetailLines(issue: dict<any>): list<string>
@@ -206,6 +239,7 @@ def Show(opencmd: string, name: string, lines: list<string>, state: dict<any>)
     nnoremap <buffer> <nowait> <silent> s <ScriptCmd>Transition()<CR>
     if state.kind == 'list'
       nnoremap <buffer> <nowait> <silent> <CR> <ScriptCmd>OpenUnderCursor()<CR>
+      nnoremap <buffer> <nowait> <silent> o <ScriptCmd>Sort()<CR>
       setlocal filetype=jiraissues
     else
       setlocal filetype=markdown
@@ -276,6 +310,17 @@ def Refresh()
   elseif get(state, 'kind', '') == 'issue'
     ShowIssue('edit', state.key)
   endif
+  setpos('.', pos)
+enddef
+
+# Searches again, ordered by the column under the cursor (see SortJql()).
+def Sort()
+  const field = ColumnAt(getline(3), virtcol('.'))
+  if empty(field)
+    return
+  endif
+  const pos = getcurpos()
+  ShowList('edit', SortJql(b:jira.jql, field))
   setpos('.', pos)
 enddef
 

@@ -83,13 +83,15 @@ forgets it. URL and email can also be set with `g:jira_url` / `g:jira_user`.
 :JiraIssue ABC-12                    " details of one issue
 ```
 
-The list shows key, status, assignee and summary. All matching issues are
-loaded page by page (up to `g:jira_max_results`, default 1000; `0` = no
-limit). Press `<CR>` on an issue to open its details (fields, description,
-comments) in a split.
+The list shows key, status, assignee and summary under a column header. All
+matching issues are loaded page by page (up to `g:jira_max_results`, default
+1000; `0` = no limit). Press `<CR>` on an issue to open its details (fields,
+description, comments) in a split. Press `o` to sort by the column under the
+cursor (again to reverse); Jira does the sorting via the JQL `ORDER BY`.
 
 | Key | Command | Action |
 |-----|---------|--------|
+| `o` | | Sort the list by the column under the cursor |
 | `e` | `:JiraEdit [key]` | Edit summary (line 1) and description (from line 3); `:w` saves |
 | `c` | `:JiraComment [key]` | Write a comment; `:w` posts |
 | `s` | `:JiraTransition [key] [status]` | Change status (menu, or e.g. `:JiraTransition Done`) |

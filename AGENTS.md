@@ -72,6 +72,11 @@ being asked.
 - List and detail buffers are read-only scratch buffers (`buftype=nofile`,
   `nobuflisted`). Their single-letter mappings (`<CR> e c s r q`) are safe
   only because the buffers are not modifiable; keep it that way.
+- The list has a column header on line 3. `o` sorts by the column under
+  the cursor by rewriting the JQL `ORDER BY` (`SortJql()`) and searching
+  again; sorting is never done locally, so it stays correct with paging.
+- The code says "issue" (as the REST API and JQL do), not "work item", the
+  newer name in the Jira web UI. Do not rename unless the owner asks.
 - Edit and comment buffers use `buftype=acwrite` with a `BufWriteCmd` that
   calls `SaveEditor()`. The edit buffer is laid out like a git commit
   message: summary on line 1, description from line 3.

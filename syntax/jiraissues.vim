@@ -4,10 +4,12 @@ if exists('b:current_syntax')
 endif
 
 syntax match jiraIssuesHeader /^JQL: .*/
+syntax match jiraIssuesColumns /^\%3lKEY\s.*/
 syntax match jiraIssuesKey    /^\a[A-Za-z0-9_]*-\d\+\ze\s/
 syntax match jiraIssuesNote   /^\%((no issues)\|-- .* --\)$/
 
 highlight default link jiraIssuesHeader Comment
+highlight default link jiraIssuesColumns Title
 highlight default link jiraIssuesKey    Identifier
 highlight default link jiraIssuesNote   Comment
 
