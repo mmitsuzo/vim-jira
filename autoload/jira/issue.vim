@@ -219,7 +219,10 @@ enddef
 # Opens buffer name in the current window and fills it with lines.
 # opencmd: 'edit' or 'split'.
 def Show(opencmd: string, name: string, lines: list<string>, state: dict<any>)
-  if opencmd == 'edit' && &modified && !&hidden && bufname() != name
+  if bufname() == name
+    # Already shown: just refill it. Re-editing a nofile buffer would clear
+    # its syntax highlighting.
+  elseif opencmd == 'edit' && &modified && !&hidden
     execute 'silent keepalt split ' .. fnameescape(name)
   else
     execute 'silent keepalt ' .. opencmd .. ' ' .. fnameescape(name)

@@ -278,6 +278,8 @@ def g:Test_issues_and_detail_buffers()
   # r keeps the sort order
   normal r
   assert_match('ORDER BY status DESC$', getline(1))
+  # sorting and refreshing keep the syntax highlighting
+  assert_equal('jiraIssuesKey', synIDattr(synID(4, 1, 1), 'name'))
   JiraIssues
   assert_equal(jql, getline(1))
 

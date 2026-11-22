@@ -6,6 +6,7 @@ vim9script
 const root = fnamemodify(expand('<sfile>:p'), ':h:h')
 &runtimepath = root .. ',' .. &runtimepath
 filetype plugin on
+syntax on
 execute 'source ' .. fnameescape(root .. '/plugin/jira.vim')
 
 var output: list<string> = []
